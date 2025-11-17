@@ -13,11 +13,15 @@ class Player {
         this.width = 48 * 2;
         this.height = 48 * 2;
         this.velocity = 6;
+        this.velocityVertical = 4;
 
         this.position = {
             x: canvasWidth / 2 - this.width / 2,
             y: canvasHeight - this.height - 30,
         };
+
+        this.canvasWidth = canvasWidth;
+        this.canvasHeight = canvasHeight;
 
         this.image = this.getImage(PATH_SPACESHIP_IMAGE);
         this.engineImage = this.getImage(PATH_ENGINE_IMAGE);
@@ -33,6 +37,26 @@ class Player {
 
     moveRight() {
         this.position.x += this.velocity;
+    }
+
+    moveUp() {
+        this.position.y -= this.velocityVertical;
+    }
+
+    moveDown() {
+        this.position.y += this.velocityVertical;
+    }
+
+    clamp() {
+        if (this.position.x < 0) this.position.x = 0;
+        if (this.position.x + this.width > this.canvasWidth) {
+            this.position.x = this.canvasWidth - this.width;
+        }
+
+        const minY = this.canvasHeight * 0.3;
+        const maxY = this.canvasHeight - this.height - 10;
+        if (this.position.y < minY) this.position.y = minY;
+        if (this.position.y > maxY) this.position.y = maxY;
     }
 
     getImage(path) {

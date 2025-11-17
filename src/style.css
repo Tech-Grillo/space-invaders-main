@@ -84,7 +84,6 @@ canvas {
     gap: 20px;
 }
 
-/* aqui comecei a colocar cor nos tiros */
 .ammo {
     color: #ffaa00;
 }
@@ -113,8 +112,6 @@ canvas {
     font-size: 0.6rem;
     color: #fff;
 }
-
-/* aqui é a troca de cor entre laranja e vermelho */
 
 @keyframes zoom {
     from {

@@ -14,10 +14,10 @@ const scoreUi = document.querySelector(".score-ui");
 const scoreElement = scoreUi.querySelector(".score > span");
 const levelElement = scoreUi.querySelector(".level > span");
 const highElement = scoreUi.querySelector(".high > span");
+const enemiesElement = scoreUi.querySelector(".enemies > span");
 const ammoElement = scoreUi.querySelector(".ammo > span") || createAmmoElement();
 const buttonPlay = document.querySelector(".button-play");
 const buttonRestart = document.querySelector(".button-restart");
-
 
 function createAmmoElement() {
     const ammoSpan = document.createElement("span");
@@ -43,23 +43,26 @@ const gameData = {
     score: 0,
     level: 1,
     high: 0,
+    phaseTime: 60000,
+    phaseMaxTime: 60000,
+    enemiesKilled: 0,
 };
 
 const showGameData = () => {
-    scoreElement.textContent = gameData.score;
-    levelElement.textContent = gameData.level;
-    highElement.textContent = gameData.high;
-    ammoElement.textContent = Math.ceil(playerAmmo.current);
+    scoreElement.textContent = String(gameData.score);
+    levelElement.textContent = String(gameData.level);
+    highElement.textContent = String(gameData.high);
+    enemiesElement.textContent = String(gameData.enemiesKilled);
+    ammoElement.textContent = String(Math.ceil(playerAmmo.current));
 };
 
 const player = new Player(canvas.width, canvas.height);
 
-// controle de munição que a nave atira
 const playerAmmo = {
     max: 10,
     current: 10,
-    rechargeTime: 3000, 
-    rechargeRate: 1 / 180, // recarrega 1 tiro a cada seg 
+    rechargeTime: 3000,
+    rechargeRate: 1 / 180,
     lastShotTime: 0,
     canShoot() {
         return this.current > 0;
@@ -73,7 +76,6 @@ const playerAmmo = {
         return false;
     },
     recharge(deltaTime) {
-        // recarregar só após 0.5 seg de inatividade do jogadore
         const timeSinceLastShot = Date.now() - this.lastShotTime;
         if (timeSinceLastShot > 500 && this.current < this.max) {
             this.current = Math.min(this.max, this.current + this.rechargeRate);
@@ -103,7 +105,8 @@ const initObstacles = () => {
 
 initObstacles();
 
-
+// antes: Math.round(Math.random() * 9 + 1)
+// agora: menor quantidade inicial (2..5)
 const grid = new Grid(
     Math.floor(Math.random() * 4) + 2,
     Math.floor(Math.random() * 4) + 2
@@ -112,6 +115,8 @@ const grid = new Grid(
 const keys = {
     left: false,
     right: false,
+    up: false,
+    down: false,
     shoot: {
         pressed: false,
         released: true,
@@ -129,7 +134,11 @@ const incrementScore = (value) => {
 const incrementLevel = () => {
     gameData.level += 1;
 
-    
+    // restaurado: não remover barreiras automaticamente aqui
+    // (manter outras lógicas se necessário)
+
+    // resetar timer ao passar de fase
+    gameData.phaseTime = gameData.phaseMaxTime;
 };
 
 const generateStars = () => {
@@ -222,6 +231,7 @@ const checkShootInvaders = () => {
                 );
 
                 incrementScore(10);
+                gameData.enemiesKilled++;
 
                 grid.invaders.splice(invaderIndex, 1);
                 playerProjectiles.splice(projectileIndex, 1);
@@ -325,14 +335,14 @@ const spawnGrid = () => {
     if (grid.invaders.length === 0) {
         soundEffects.playNextLevelSound();
 
-        // primeiro incrementa o level para que a nova grade leve em conta o level atual
+        // adicona o level 
         incrementLevel();
 
-        // base menor (2..5)
-        const baseRows = Math.floor(Math.random() * 4) + 2; // 2..5
-        const baseCols = Math.floor(Math.random() * 4) + 2; // 2..5
 
+        const baseRows = Math.floor(Math.random() * 4) + 2; 
+        const baseCols = Math.floor(Math.random() * 4) + 2; 
 
+      
         const extra = Math.min(2, Math.floor(gameData.level * 0.2));
 
       
@@ -348,6 +358,23 @@ const spawnGrid = () => {
     }
 };
 
+const drawTimer = (ctx) => {
+    try {
+        const seconds = Math.ceil(gameData.phaseTime / 1000);
+        const displaySeconds = Math.max(0, seconds);
+        
+        ctx.save();
+        ctx.fillStyle = displaySeconds <= 10 ? "#ff0000" : "#ffff00";
+        ctx.font = "bold 18px Arial";
+        ctx.textAlign = "right";
+        ctx.fillText(`TIME: ${displaySeconds}s`, canvas.width - 20, canvas.height - 20);
+        ctx.restore();
+    } catch (e) {
+ 
+    }
+};
+
+
 const gameLoop = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -357,7 +384,15 @@ const gameLoop = () => {
         showGameData();
         spawnGrid();
 
-        // fiz aqui para recarregar munição
+    
+        gameData.phaseTime = Math.max(0, gameData.phaseTime - 16);
+
+        // verificar se o tempo acabou
+        if (gameData.phaseTime <= 0) {
+            gameOver();
+        }
+
+        // recarregar munição
         playerAmmo.recharge();
 
         drawProjectiles();
@@ -384,7 +419,7 @@ const gameLoop = () => {
         );
 
         if (keys.shoot.pressed && keys.shoot.released) {
-
+         
             if (playerAmmo.shoot()) {
                 soundEffects.playShootSound();
                 player.shoot(playerProjectiles);
@@ -402,6 +437,16 @@ const gameLoop = () => {
             ctx.rotate(0.15);
         }
 
+        if (keys.up) {
+            player.moveUp();
+        }
+
+        if (keys.down) {
+            player.moveDown();
+        }
+
+        player.clamp();
+
         ctx.translate(
             -player.position.x - player.width / 2,
             -player.position.y - player.height / 2
@@ -409,6 +454,8 @@ const gameLoop = () => {
 
         player.draw(ctx);
         ctx.restore();
+
+        drawTimer(ctx);
     }
 
     if (currentState === GameState.GAME_OVER) {
@@ -443,22 +490,22 @@ const restartGame = () => {
 
     gameData.score = 0;
     gameData.level = 1;
+    gameData.phaseTime = gameData.phaseMaxTime;
+    gameData.enemiesKilled = 0;
 
-    // resetar munição
     playerAmmo.current = playerAmmo.max;
     playerAmmo.lastShotTime = Date.now();
 
-    
     player.position.x = canvas.width / 2 - player.width / 2;
     player.position.y = canvas.height - player.height - 30;
     player.alive = true;
 
-   
     grid.rows = Math.floor(Math.random() * 4) + 2;
     grid.cols = Math.floor(Math.random() * 4) + 2;
     grid.restart();
     initObstacles();
 
+   
     showGameData();
 
     if (gameOverScreen.parentElement) {
@@ -473,6 +520,8 @@ addEventListener("keydown", (event) => {
 
     if (key === "a") keys.left = true;
     if (key === "d") keys.right = true;
+    if (key === "w") keys.up = true;
+    if (key === "s") keys.down = true;
     if (key === " ") keys.shoot.pressed = true;
 });
 
@@ -481,6 +530,8 @@ addEventListener("keyup", (event) => {
 
     if (key === "a") keys.left = false;
     if (key === "d") keys.right = false;
+    if (key === "w") keys.up = false;
+    if (key === "s") keys.down = false;
     if (key === " ") {
         keys.shoot.pressed = false;
         keys.shoot.released = true;
@@ -491,6 +542,9 @@ buttonPlay.addEventListener("click", () => {
     startScreen.remove();
     scoreUi.style.display = "block";
     currentState = GameState.PLAYING;
+    
+  
+    showGameData();
 
     setInterval(() => {
         const invader = grid.getRandomInvader();

@@ -1,14 +1,14 @@
 class Projectile {
   constructor(position, velocity) {
     this.position = position;
-    this.width = 3;   // menor
-    this.height = 10; // menor
+    this.width = 3;   
+    this.height = 10; 
     this.velocity = velocity;
 
     // animação 
     this.frame = 0;
     this.frameCounter = 0;
-    this.frameInterval = 6; // quantos updates até trocar de cor 
+    this.frameInterval = 6; // quantos efeitos até trocar de cor 
     this.frames = 2;
   }
 
@@ -36,7 +36,7 @@ class Projectile {
   }
 
   update() {
-    // mover
+    // mover a navee
     this.position.y += this.velocity;
 
     // atualizar animação 
